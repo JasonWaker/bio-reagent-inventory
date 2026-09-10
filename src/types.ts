@@ -5,6 +5,7 @@ export interface InventoryBatch {
   sku: string
   name: string
   quantity: number
+  warningThreshold?: number
   batchNo: string
   expiryDate: string
   sourceRow?: number

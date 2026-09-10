@@ -206,7 +206,7 @@ export async function exportInventoryXlsx(cycle: InventoryCycle, views: BatchVie
   const ExcelJS = await loadExcel()
   const inventory = views.map((row) => ({
     货号: row.sku, 名称: row.name, 期初数量: row.quantity, 已出库: row.outboundQuantity,
-    库存余量: row.remaining, 批号: row.batchNo, 有效期: row.expiryDate,
+    库存余量: row.remaining, 库存预警值: row.warningThreshold ?? '', 批号: row.batchNo, 有效期: row.expiryDate,
   }))
   const outbound = cycle.outbounds.map((row) => ({
     出库单号: row.documentNo, 日期: row.date, 科室: row.department, 品种编码: row.productCode,
