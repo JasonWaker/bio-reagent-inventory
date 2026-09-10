@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle, Archive, ArrowDownToLine, Boxes, CalendarClock, CheckCircle2, ChevronRight,
   ClipboardList, Database, Download, FileDown, FileSpreadsheet, History, LayoutDashboard,
@@ -218,8 +218,14 @@ function StatusPill({ status }: { status: OutboundRecord['matchStatus'] }) {
 function SmallEmpty({ text }: { text: string }) { return <div className="small-empty"><CalendarClock size={24} /><span>{text}</span></div> }
 
 function ThresholdManager({ rows, defaultThreshold, onChange }: { rows: BatchView[]; defaultThreshold: number; onChange: (batchId: string, value?: number) => void }) {
+  const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
+  const normalizedQuery = deferredQuery.trim().toLocaleLowerCase('zh-CN')
+  const filteredRows = useMemo(() => normalizedQuery
+    ? rows.filter((row) => [row.name, row.sku, row.batchNo].some((value) => value.toLocaleLowerCase('zh-CN').includes(normalizedQuery)))
+    : rows, [rows, normalizedQuery])
   const warningCount = rows.filter((row) => row.remaining <= (row.warningThreshold ?? defaultThreshold)).length
-  return <section className="panel settings-panel threshold-manager"><div className="panel-heading"><div><span className="eyebrow">当前周期</span><h2>批次库存预警管理</h2></div><span className="manager-count">{warningCount} 个预警</span></div><div className="threshold-list">{rows.map((row) => { const threshold = row.warningThreshold ?? defaultThreshold; const warning = row.remaining <= threshold; return <div className={`threshold-row ${warning ? 'warning' : ''}`} key={row.id}><div><strong>{row.name}</strong><span>{row.batchNo} · 当前余量 {formatNumber(row.remaining)} 盒</span></div><label>预警值<input aria-label={`${row.batchNo} 预警值`} type="number" min="0" step="any" value={threshold} onChange={(e) => onChange(row.id, Number(e.target.value))} /></label><button className="button ghost mini" disabled={row.warningThreshold === undefined} onClick={() => onChange(row.id, undefined)}>使用默认</button><span className={`stock-status ${warning ? 'warning' : 'normal'}`}>{warning ? '重点关注' : '正常'}</span></div> })}</div></section>
+  return <section className="panel settings-panel threshold-manager"><div className="panel-heading"><div><span className="eyebrow">当前周期</span><h2>批次库存预警管理</h2></div><span className="manager-count">{warningCount} 个预警</span></div><div className="threshold-toolbar"><label className="search"><Search size={18} /><input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索产品名称、品种编码或批号" aria-label="搜索预警批次" />{query && <button type="button" className="search-clear" onClick={() => setQuery('')} aria-label="清空搜索"><X size={15} /></button>}</label><span>{normalizedQuery ? `找到 ${filteredRows.length} / ${rows.length} 个批次` : `共 ${rows.length} 个批次`}</span></div><div className="threshold-list">{filteredRows.length ? filteredRows.map((row) => { const threshold = row.warningThreshold ?? defaultThreshold; const warning = row.remaining <= threshold; return <div className={`threshold-row ${warning ? 'warning' : ''}`} key={row.id}><div><strong>{row.name}</strong><span>{row.sku} · {row.batchNo} · 当前余量 {formatNumber(row.remaining)} 盒</span></div><label>预警值<input aria-label={`${row.batchNo} 预警值`} type="number" min="0" step="any" value={threshold} onChange={(e) => onChange(row.id, Number(e.target.value))} /></label><button className="button ghost mini" disabled={row.warningThreshold === undefined} onClick={() => onChange(row.id, undefined)}>使用默认</button><span className={`stock-status ${warning ? 'warning' : 'normal'}`}>{warning ? '重点关注' : '正常'}</span></div> }) : <div className="threshold-empty"><Search size={22} /><span>没有找到匹配的库存批次</span><button type="button" className="text-button" onClick={() => setQuery('')}>清空搜索</button></div>}</div></section>
 }
 
 function BatchModal({ initial, defaultThreshold, onClose, onSave, onDelete }: { initial: InventoryBatch | null; defaultThreshold: number; onClose: () => void; onSave: (value: InventoryBatch) => void; onDelete?: () => void }) {
