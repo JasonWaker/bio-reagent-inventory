@@ -20,6 +20,7 @@ import {
   LogOut,
   Menu,
   PackageMinus,
+  Pencil,
   Plus,
   Search,
   Settings,
@@ -89,6 +90,7 @@ export default function App() {
   const [state, setState] = useState<AppState>(loadState);
   const [view, setView] = useState<View>("dashboard");
   const [query, setQuery] = useState("");
+  const [outboundQuery, setOutboundQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const [token, setToken] = useState(
@@ -186,6 +188,25 @@ export default function App() {
     [item.sku, item.name, item.batchNo].some((value) =>
       value.toLowerCase().includes(query.toLowerCase()),
     ),
+  );
+  const normalizedOutboundQuery = outboundQuery.trim().toLowerCase();
+  const filteredOutbounds = useMemo(
+    () =>
+      [...(cycle?.outbounds ?? [])]
+        .reverse()
+        .filter((row) =>
+          [
+            row.documentNo,
+            row.date,
+            row.name,
+            row.productCode,
+            row.batchNo,
+            row.department,
+          ].some((value) =>
+            value.toLowerCase().includes(normalizedOutboundQuery),
+          ),
+        ),
+    [cycle?.outbounds, normalizedOutboundQuery],
   );
   const totalRemaining = batchViews.reduce(
     (sum, row) => sum + row.remaining,
@@ -871,17 +892,48 @@ export default function App() {
                               </span>
                             </td>
                             <td>
-                              <button
-                                className="icon-button"
-                                aria-label="编辑"
-                                onClick={() => setBatchModal(row)}
-                              >
-                                <ChevronRight size={18} />
-                              </button>
+                              <div className="row-actions">
+                                <button
+                                  className="icon-button"
+                                  aria-label={`编辑库存批次 ${row.batchNo}`}
+                                  title="编辑"
+                                  onClick={() => setBatchModal(row)}
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                                <button
+                                  className="icon-button delete-action"
+                                  aria-label={`删除库存批次 ${row.batchNo}`}
+                                  title="删除"
+                                  onClick={() => {
+                                    if (!window.confirm("确定删除这个库存批次吗？"))
+                                      return;
+                                    updateCycle((current) => ({
+                                      ...current,
+                                      batches: current.batches.filter(
+                                        (batch) => batch.id !== row.id,
+                                      ),
+                                    }));
+                                    setToast({
+                                      kind: "success",
+                                      message: "库存批次已删除",
+                                    });
+                                  }}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
                       })}
+                      {!filteredBatches.length && (
+                        <tr>
+                          <td colSpan={7}>
+                            <SmallEmpty text="没有找到符合条件的库存批次" />
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -936,6 +988,29 @@ export default function App() {
                     </div>
                   </div>
                 )}
+                <div className="toolbar">
+                  <label className="search">
+                    <Search size={18} />
+                    <input
+                      value={outboundQuery}
+                      onChange={(e) => setOutboundQuery(e.target.value)}
+                      placeholder="搜索出库单、产品、批号、科室或日期"
+                    />
+                    {outboundQuery && (
+                      <button
+                        type="button"
+                        className="search-clear"
+                        aria-label="清除出库搜索"
+                        onClick={() => setOutboundQuery("")}
+                      >
+                        <X size={15} />
+                      </button>
+                    )}
+                  </label>
+                  <span className="query-count">
+                    {filteredOutbounds.length} / {cycle.outbounds.length} 条
+                  </span>
+                </div>
                 <div className="table-card">
                   <table>
                     <thead>
@@ -950,8 +1025,8 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody>
-                      {cycle.outbounds.length ? (
-                        [...cycle.outbounds].reverse().map((row) => (
+                      {filteredOutbounds.length ? (
+                        filteredOutbounds.map((row) => (
                           <tr key={row.id}>
                             <td data-label="出库单 / 日期">
                               <strong>{row.documentNo || "手工记录"}</strong>
@@ -974,20 +1049,50 @@ export default function App() {
                               <StatusPill status={row.matchStatus} />
                             </td>
                             <td>
-                              <button
-                                className="icon-button"
-                                aria-label="编辑"
-                                onClick={() => setOutboundModal(row)}
-                              >
-                                <ChevronRight size={18} />
-                              </button>
+                              <div className="row-actions">
+                                <button
+                                  className="icon-button"
+                                  aria-label={`编辑出库记录 ${row.documentNo || row.name}`}
+                                  title="编辑"
+                                  onClick={() => setOutboundModal(row)}
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                                <button
+                                  className="icon-button delete-action"
+                                  aria-label={`删除出库记录 ${row.documentNo || row.name}`}
+                                  title="删除"
+                                  onClick={() => {
+                                    if (!window.confirm("确定删除这条出库记录吗？"))
+                                      return;
+                                    updateCycle((current) => ({
+                                      ...current,
+                                      outbounds: current.outbounds.filter(
+                                        (record) => record.id !== row.id,
+                                      ),
+                                    }));
+                                    setToast({
+                                      kind: "success",
+                                      message: "出库记录已删除",
+                                    });
+                                  }}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
                           <td colSpan={7}>
-                            <SmallEmpty text="当前周期还没有出库记录" />
+                            <SmallEmpty
+                              text={
+                                cycle.outbounds.length
+                                  ? "没有找到符合条件的出库记录"
+                                  : "当前周期还没有出库记录"
+                              }
+                            />
                           </td>
                         </tr>
                       )}
