@@ -17,7 +17,7 @@
 
 - 数据库：独立的 `bio_reagent_inventory`，独立运行账号 `bio_reagent_app`。
 - 图片：独立私有 OSS Bucket，不复用其他项目 Bucket；图片识别结束立即删除，1 天生命周期兜底。
-- 服务：独立容器、目录、网络与日志；仅监听 `127.0.0.1:3110`，限制 0.5 CPU / 512 MB。
+- 服务：独立 Linux 账号、systemd 单元、目录与日志；仅监听 `127.0.0.1:3110`，限制 50% CPU / 512 MB。
 - 凭据：百炼、OSS、数据库和登录密钥只进入服务端专用环境变量，不进入 GitHub Pages 或仓库。
 
 ## 本地前端
@@ -43,10 +43,12 @@ npm run build
 1. 管理员执行 `server/deploy/provision-database.sql` 创建独立数据库和账号。
 2. 使用 `bio_reagent_migrator` 在新库执行 `server/migrations/001_initial.sql`。
 3. 执行 `server/migrations/002_runtime_grants.sql`，只授予运行账号本库 DML 权限。
-4. 使用 `server/deploy/docker-compose.yml` 启动独立容器。
+4. 可使用 `server/deploy/docker-compose.yml` 启动独立容器；阿里云现网因 Docker Hub 不可达，使用同等资源限制与系统加固的独立 systemd 服务。
 
 ## 阿里云资源
 
 `infra/main.tf` 仅描述进销存专用 OSS Bucket、私有 ACL、AES256 加密和 1 天图片清理规则。2026-09-11 已应用 Terraform 计划：3 项新增、0 修改、0 删除，专用私有 Bucket 为 `bio-reagent-inventory-private-cn-shanghai-20260911-jw`。
 
 完整设计和上线约束见 `.aliyun-ai-ops-spec/reagent-inventory-cloud/designs/design.md`。
+
+现网 API：`https://inventory-api.kakahealthy.cn/bio-reagent-inventory`。GitHub Pages 通过仓库变量 `VITE_API_BASE_URL` 使用该地址。

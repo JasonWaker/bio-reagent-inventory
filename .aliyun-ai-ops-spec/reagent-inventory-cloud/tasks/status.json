@@ -2,7 +2,7 @@
   "project": "reagent-inventory-cloud",
   "mode": "full",
   "change_type": "new",
-  "status": "implemented_pending_deploy",
+  "status": "deployed",
   "approved_at": "2026-09-11",
   "source_infrastructure": "kaka-ai-production-readiness",
   "state": {
@@ -19,11 +19,13 @@
     "frontend_build": "passed",
     "backend_typecheck": "passed",
     "responsive_browser_check": "passed",
-    "cloud_integration": "pending credentials and deployment"
+    "cloud_integration": "passed",
+    "api_endpoint": "https://inventory-api.kakahealthy.cn/bio-reagent-inventory",
+    "runtime": "isolated systemd service"
   },
   "constraints": [
     "reuse existing ECS and RDS instance capacity only",
-    "independent database, accounts, OSS bucket, credentials and container",
+    "independent database, accounts, OSS bucket, credentials and service",
     "no changes to other project data or processes"
   ]
 }
