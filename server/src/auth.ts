@@ -1,8 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import { SignJWT, jwtVerify } from "jose";
-import argon2 from "argon2";
 import { config } from "./config.js";
 import { pool } from "./db.js";
+import { hashPassword, verifyPassword } from "./password.js";
 
 const secret = new TextEncoder().encode(config.JWT_SECRET);
 
@@ -22,7 +22,7 @@ export async function login(username: string, password: string) {
   );
   if (
     !found.rowCount ||
-    !(await argon2.verify(found.rows[0].password_hash, password))
+    !(await verifyPassword(found.rows[0].password_hash, password))
   )
     return null;
   const mustChangePassword = Boolean(found.rows[0].must_change_password);
@@ -33,7 +33,7 @@ export async function login(username: string, password: string) {
 }
 
 export async function changePassword(username: string, password: string) {
-  const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+  const passwordHash = await hashPassword(password);
   const changed = await pool.query(
     "UPDATE admin_credentials SET password_hash=$2,must_change_password=false,updated_at=now() WHERE username=$1 AND must_change_password=true",
     [username, passwordHash],

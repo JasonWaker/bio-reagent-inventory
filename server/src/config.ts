@@ -5,7 +5,7 @@ const configSchema = z.object({
   DATABASE_URL: z.string().min(1),
   JWT_SECRET: z.string().min(32),
   ADMIN_USERNAME: z.string().min(1).default("admin"),
-  ADMIN_PASSWORD_HASH: z.string().startsWith("$argon2"),
+  ADMIN_PASSWORD_HASH: z.string().startsWith("$scrypt$"),
   CORS_ORIGIN: z.string().url(),
   DASHSCOPE_API_KEY: z.string().min(10),
   BAILIAN_BASE_URL: z.string().url().default("https://dashscope.aliyuncs.com"),
