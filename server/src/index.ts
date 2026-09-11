@@ -5,7 +5,12 @@ import multer from "multer";
 import { rateLimit } from "express-rate-limit";
 import { z } from "zod";
 import { config } from "./config.js";
-import { login, requireAuth } from "./auth.js";
+import {
+  changePassword,
+  login,
+  requireAuth,
+  requirePasswordChanged,
+} from "./auth.js";
 import { pool } from "./db.js";
 import { stateSchema } from "./schema.js";
 import { readState, writeState } from "./state.js";
@@ -61,14 +66,24 @@ app.post("/auth/login", authLimit, async (req, res) => {
     .safeParse(req.body);
   if (!input.success)
     return res.status(400).json({ error: "请填写账号和密码" });
-  const token = await login(input.data.username, input.data.password);
-  if (!token) return res.status(401).json({ error: "账号或密码不正确" });
-  res.json({ token, expiresIn: 7200 });
+  const session = await login(input.data.username, input.data.password);
+  if (!session) return res.status(401).json({ error: "账号或密码不正确" });
+  res.json({ ...session, expiresIn: 7200 });
 });
-app.get("/state", requireAuth, async (_req, res) =>
+app.post("/auth/change-password", authLimit, requireAuth, async (req, res) => {
+  const input = z
+    .object({ password: z.string().min(10).max(200) })
+    .safeParse(req.body);
+  if (!input.success)
+    return res.status(400).json({ error: "新密码至少需要 10 个字符" });
+  res.json({
+    token: await changePassword(res.locals.user, input.data.password),
+  });
+});
+app.get("/state", requireAuth, requirePasswordChanged, async (_req, res) =>
   res.json(await readState()),
 );
-app.put("/state", requireAuth, async (req, res) => {
+app.put("/state", requireAuth, requirePasswordChanged, async (req, res) => {
   const input = z
     .object({
       state: stateSchema,
@@ -91,6 +106,7 @@ app.put("/state", requireAuth, async (req, res) => {
 app.post(
   "/recognition/:kind",
   requireAuth,
+  requirePasswordChanged,
   recognitionLimit,
   upload.single("image"),
   async (req, res) => {
@@ -136,6 +152,6 @@ app.use(
   },
 );
 
-app.listen(config.PORT, "127.0.0.1", () =>
+app.listen(config.PORT, "0.0.0.0", () =>
   console.log(JSON.stringify({ event: "server_started", port: config.PORT })),
 );

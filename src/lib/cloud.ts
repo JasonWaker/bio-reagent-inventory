@@ -29,10 +29,16 @@ async function request<T>(
 
 export const cloudEnabled = Boolean(API_BASE);
 export const cloudLogin = (username: string, password: string) =>
-  request<{ token: string }>("/auth/login", {
+  request<{ token: string; mustChangePassword: boolean }>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
+export const cloudChangePassword = (token: string, password: string) =>
+  request<{ token: string }>(
+    "/auth/change-password",
+    { method: "POST", body: JSON.stringify({ password }) },
+    token,
+  );
 export const cloudReadState = (token: string) =>
   request<{ state: AppState; revision: number }>("/state", {}, token);
 export const cloudWriteState = (

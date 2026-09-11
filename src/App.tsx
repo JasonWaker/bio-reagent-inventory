@@ -41,6 +41,7 @@ import {
   refreshMatchStatuses,
 } from "./lib/inventory";
 import {
+  cloudChangePassword,
   cloudEnabled,
   cloudLogin,
   cloudReadState,
@@ -760,7 +761,11 @@ export default function App() {
                     <button
                       className="button ghost"
                       disabled={!cloudEnabled || recognizing}
-                      title={cloudEnabled ? "使用百炼识别入库单" : "独立云端 API 部署后启用"}
+                      title={
+                        cloudEnabled
+                          ? "使用百炼识别入库单"
+                          : "独立云端 API 部署后启用"
+                      }
                       onClick={() => openRecognition("inbound")}
                     >
                       <Camera size={17} />
@@ -892,7 +897,11 @@ export default function App() {
                     <button
                       className="button ghost"
                       disabled={!cloudEnabled || recognizing}
-                      title={cloudEnabled ? "使用百炼识别出库单" : "独立云端 API 部署后启用"}
+                      title={
+                        cloudEnabled
+                          ? "使用百炼识别出库单"
+                          : "独立云端 API 部署后启用"
+                      }
                       onClick={() => openRecognition("outbound")}
                     >
                       <Camera size={17} />
@@ -1060,10 +1069,9 @@ export default function App() {
                   enabled={cloudEnabled}
                   token={token}
                   status={cloudStatus}
-                  onLogin={async (username, password) => {
-                    const result = await cloudLogin(username, password);
-                    sessionStorage.setItem(TOKEN_KEY, result.token);
-                    setToken(result.token);
+                  onAuthenticated={(nextToken) => {
+                    sessionStorage.setItem(TOKEN_KEY, nextToken);
+                    setToken(nextToken);
                   }}
                   onLogout={() => {
                     sessionStorage.removeItem(TOKEN_KEY);
@@ -1238,19 +1246,21 @@ function CloudPanel({
   enabled,
   token,
   status,
-  onLogin,
+  onAuthenticated,
   onLogout,
 }: {
   enabled: boolean;
   token: string;
   status: "local" | "loading" | "synced" | "error";
-  onLogin: (username: string, password: string) => Promise<void>;
+  onAuthenticated: (token: string) => void;
   onLogout: () => void;
 }) {
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [temporaryToken, setTemporaryToken] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   return (
     <section className="panel settings-panel cloud-panel">
       <div className="panel-heading">
@@ -1281,6 +1291,46 @@ function CloudPanel({
             退出云端
           </button>
         </>
+      ) : temporaryToken ? (
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            setError("");
+            try {
+              const result = await cloudChangePassword(
+                temporaryToken,
+                newPassword,
+              );
+              onAuthenticated(result.token);
+              setTemporaryToken("");
+              setNewPassword("");
+            } catch (reason) {
+              setError(
+                reason instanceof Error ? reason.message : "修改密码失败",
+              );
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <label>
+            设置新密码
+            <input
+              required
+              minLength={10}
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </label>
+          <p>首次登录必须修改默认密码，新密码至少 10 个字符。</p>
+          {error && <p className="form-error">{error}</p>}
+          <button className="button primary" disabled={busy}>
+            {busy ? "保存中" : "保存新密码并进入"}
+          </button>
+        </form>
       ) : (
         <form
           onSubmit={async (event) => {
@@ -1288,7 +1338,12 @@ function CloudPanel({
             setBusy(true);
             setError("");
             try {
-              await onLogin(username, password);
+              const result = await cloudLogin(username, password);
+              if (result.mustChangePassword) {
+                setTemporaryToken(result.token);
+              } else {
+                onAuthenticated(result.token);
+              }
               setPassword("");
             } catch (reason) {
               setError(reason instanceof Error ? reason.message : "登录失败");

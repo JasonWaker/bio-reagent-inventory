@@ -11,6 +11,7 @@
 - JSON 备份/恢复与 Excel 台账导出。
 - 阿里云百炼 qwen-vl-ocr 图片识别；结果先进入可编辑草稿，确认后才入库。
 - 独立 PostgreSQL 数据库云同步，使用版本号阻止多设备静默覆盖。
+- 管理员登录；初始账号为 `admin / admin123`，首次登录必须设置至少 10 位的新密码。
 
 ## 数据隔离
 
@@ -46,6 +47,6 @@ npm run build
 
 ## 阿里云资源
 
-`infra/main.tf` 仅描述进销存专用 OSS Bucket、私有 ACL、AES256 加密和 1 天图片清理规则。2026-09-11 已通过阿里云只读 Terraform plan：3 项新增、0 修改、0 删除；尚未 apply。
+`infra/main.tf` 仅描述进销存专用 OSS Bucket、私有 ACL、AES256 加密和 1 天图片清理规则。2026-09-11 已应用 Terraform 计划：3 项新增、0 修改、0 删除，专用私有 Bucket 为 `bio-reagent-inventory-private-cn-shanghai-20260911-jw`。
 
 完整设计和上线约束见 `.aliyun-ai-ops-spec/reagent-inventory-cloud/designs/design.md`。
