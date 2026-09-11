@@ -458,6 +458,15 @@ export default function App() {
     </div>
   );
 
+  const handleAuthenticated = (nextToken: string) => {
+    sessionStorage.setItem(TOKEN_KEY, nextToken);
+    setToken(nextToken);
+  };
+
+  if (cloudEnabled && !token) {
+    return <AuthGate onAuthenticated={handleAuthenticated} />;
+  }
+
   return (
     <div className="app-shell">
       <input
@@ -1069,10 +1078,7 @@ export default function App() {
                   enabled={cloudEnabled}
                   token={token}
                   status={cloudStatus}
-                  onAuthenticated={(nextToken) => {
-                    sessionStorage.setItem(TOKEN_KEY, nextToken);
-                    setToken(nextToken);
-                  }}
+                  onAuthenticated={handleAuthenticated}
                   onLogout={() => {
                     sessionStorage.removeItem(TOKEN_KEY);
                     setToken("");
@@ -1239,6 +1245,126 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
+
+function AuthGate({
+  onAuthenticated,
+}: {
+  onAuthenticated: (token: string) => void;
+}) {
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [temporaryToken, setTemporaryToken] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <main className="auth-page">
+      <section className="auth-card">
+        <div className="auth-brand">
+          <div className="brand-mark">
+            <Database size={24} />
+          </div>
+          <div>
+            <span className="eyebrow">Bio reagent inventory</span>
+            <h1>试剂库存台账</h1>
+          </div>
+        </div>
+        <div className="auth-copy">
+          <ShieldCheck size={18} />
+          <span>登录后访问独立云端库存、批次预警与图片识别。</span>
+        </div>
+        {temporaryToken ? (
+          <form
+            className="auth-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setBusy(true);
+              setError("");
+              try {
+                const result = await cloudChangePassword(
+                  temporaryToken,
+                  newPassword,
+                );
+                onAuthenticated(result.token);
+              } catch (reason) {
+                setError(
+                  reason instanceof Error ? reason.message : "修改密码失败",
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <label>
+              设置新密码
+              <input
+                required
+                minLength={10}
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+              />
+            </label>
+            <p>首次登录必须修改默认密码，新密码至少 10 个字符。</p>
+            {error && <p className="form-error">{error}</p>}
+            <button className="button primary" disabled={busy}>
+              {busy ? "保存中" : "保存新密码并进入"}
+            </button>
+          </form>
+        ) : (
+          <form
+            className="auth-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setBusy(true);
+              setError("");
+              try {
+                const result = await cloudLogin(username, password);
+                if (result.mustChangePassword) {
+                  setTemporaryToken(result.token);
+                } else {
+                  onAuthenticated(result.token);
+                }
+                setPassword("");
+              } catch (reason) {
+                setError(reason instanceof Error ? reason.message : "登录失败");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <label>
+              管理员账号
+              <input
+                required
+                autoComplete="username"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+              />
+            </label>
+            <label>
+              密码
+              <input
+                required
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+            {error && <p className="form-error">{error}</p>}
+            <button className="button primary" disabled={busy}>
+              <LogIn size={17} />
+              {busy ? "登录中" : "登录"}
+            </button>
+          </form>
+        )}
+      </section>
+    </main>
   );
 }
 
