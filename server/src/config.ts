@@ -2,7 +2,11 @@ import { z } from "zod";
 
 const configSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3110),
-  DATABASE_URL: z.string().min(1),
+  DB_HOST: z.string().min(1),
+  DB_PORT: z.coerce.number().int().positive().default(5432),
+  DB_NAME: z.string().min(1),
+  DB_USER: z.string().min(1),
+  DB_PASSWORD: z.string().min(8),
   JWT_SECRET: z.string().min(32),
   ADMIN_USERNAME: z.string().min(1).default("admin"),
   ADMIN_PASSWORD_HASH: z.string().startsWith("$scrypt$"),
