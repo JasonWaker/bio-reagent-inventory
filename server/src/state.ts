@@ -19,10 +19,10 @@ export async function readState() {
       "SELECT id, name, created_at, source_file FROM inventory_cycles ORDER BY created_at DESC",
     );
     const batches = await db.query(
-      "SELECT id, cycle_id, sku, name, quantity, warning_threshold, batch_no, expiry_date, source_row FROM inventory_batches ORDER BY created_at",
+      "SELECT id, cycle_id, sku, name, quantity, warning_threshold, batch_no, expiry_date::text AS expiry_date, source_row FROM inventory_batches ORDER BY created_at",
     );
     const outbounds = await db.query(
-      "SELECT id, cycle_id, document_no, record_date, department, product_code, name, quantity, batch_no, expiry_date, matched_batch_id, match_status, source_key, created_at FROM outbound_records ORDER BY created_at",
+      "SELECT id, cycle_id, document_no, record_date::text AS record_date, department, product_code, name, quantity, batch_no, expiry_date::text AS expiry_date, matched_batch_id, match_status, source_key, created_at FROM outbound_records ORDER BY created_at",
     );
     const batchMap = new Map<string, unknown[]>();
     const outboundMap = new Map<string, unknown[]>();

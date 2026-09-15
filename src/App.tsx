@@ -64,12 +64,12 @@ type Toast = { kind: "success" | "error"; message: string } | null;
 const STORAGE_KEY = "bio-reagent-inventory-v1";
 const TOKEN_KEY = "bio-reagent-cloud-token";
 
-const navItems: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
-  { id: "dashboard", label: "库存概览", icon: LayoutDashboard },
-  { id: "inventory", label: "当前库存", icon: Boxes },
-  { id: "outbound", label: "出库记录", icon: PackageMinus },
-  { id: "history", label: "批次历史", icon: History },
-  { id: "settings", label: "数据设置", icon: Settings },
+const navItems: { id: View; label: string; mobileLabel: string; icon: typeof LayoutDashboard }[] = [
+  { id: "dashboard", label: "库存概览", mobileLabel: "概览", icon: LayoutDashboard },
+  { id: "inventory", label: "当前库存", mobileLabel: "库存", icon: Boxes },
+  { id: "outbound", label: "出库记录", mobileLabel: "出库", icon: PackageMinus },
+  { id: "history", label: "批次历史", mobileLabel: "历史", icon: History },
+  { id: "settings", label: "数据设置", mobileLabel: "设置", icon: Settings },
 ];
 
 const loadState = (): AppState => {
@@ -83,8 +83,11 @@ const loadState = (): AppState => {
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value);
-const formatDate = (value: string) =>
-  value ? value.replace(/-/g, "/") : "未填写";
+const formatDate = (value: string) => {
+  if (!value) return "未填写";
+  const datePart = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? value;
+  return datePart.replace(/-/g, "/");
+};
 
 export default function App() {
   const [state, setState] = useState<AppState>(loadState);
@@ -618,11 +621,12 @@ export default function App() {
           </div>
           <div className="header-actions">
             <button
-              className="button secondary hide-mobile"
+              className="button secondary"
               onClick={() => inboundInput.current?.click()}
             >
               <ArrowDownToLine size={17} />
-              导入新入库表
+              <span className="hide-mobile">导入新入库表</span>
+              <span className="show-mobile">入库</span>
             </button>
             <button
               className="button primary"
@@ -1315,14 +1319,14 @@ export default function App() {
       </main>
 
       <nav className="bottom-nav">
-        {navItems.slice(0, 4).map((item) => (
+        {navItems.map((item) => (
           <button
             key={item.id}
             className={view === item.id ? "active" : ""}
             onClick={() => setView(item.id)}
           >
             <item.icon size={20} />
-            <span>{item.label.replace("库存", "")}</span>
+            <span>{item.mobileLabel}</span>
             {item.id === "outbound" && exceptions.length > 0 && (
               <b>{exceptions.length}</b>
             )}
