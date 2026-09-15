@@ -40,6 +40,22 @@ const normalizeDate = (value: unknown): string => {
   return text
 }
 
+export const normalizeAppState = (state: AppState): AppState => ({
+  ...state,
+  cycles: state.cycles.map((cycle) => ({
+    ...cycle,
+    batches: cycle.batches.map((batch) => ({
+      ...batch,
+      expiryDate: normalizeDate(batch.expiryDate),
+    })),
+    outbounds: cycle.outbounds.map((record) => ({
+      ...record,
+      date: normalizeDate(record.date),
+      expiryDate: normalizeDate(record.expiryDate),
+    })),
+  })),
+})
+
 const numberValue = (value: unknown) => {
   const parsed = Number(String(value ?? '').replace(/,/g, '').trim())
   return Number.isFinite(parsed) ? parsed : 0

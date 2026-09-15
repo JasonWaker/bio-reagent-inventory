@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const dateSchema = z
+  .string()
+  .max(100)
+  .transform((value) => value.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? value);
+
 export const batchSchema = z.object({
   id: z.string().uuid(),
   sku: z.string().min(1).max(100),
@@ -7,20 +12,20 @@ export const batchSchema = z.object({
   quantity: z.number().finite().nonnegative(),
   warningThreshold: z.number().finite().nonnegative().optional(),
   batchNo: z.string().min(1).max(120),
-  expiryDate: z.string().max(20),
+  expiryDate: dateSchema,
   sourceRow: z.number().int().positive().optional(),
 });
 
 export const outboundSchema = z.object({
   id: z.string().uuid(),
   documentNo: z.string().max(120),
-  date: z.string().max(20),
+  date: dateSchema,
   department: z.string().max(200),
   productCode: z.string().max(100),
   name: z.string().min(1).max(300),
   quantity: z.number().finite().positive(),
   batchNo: z.string().max(120),
-  expiryDate: z.string().max(20),
+  expiryDate: dateSchema,
   matchedBatchId: z.string().uuid().optional(),
   matchStatus: z.enum(["matched", "unmatched", "overdrawn"]),
   sourceKey: z.string().max(500),

@@ -36,6 +36,7 @@ import {
   exportInventoryXlsx,
   id,
   localDate,
+  normalizeAppState,
   parseInbound,
   parseOutbound,
   readWorkbook,
@@ -63,6 +64,7 @@ type Toast = { kind: "success" | "error"; message: string } | null;
 
 const STORAGE_KEY = "bio-reagent-inventory-v1";
 const TOKEN_KEY = "bio-reagent-cloud-token";
+const PENDING_SYNC_KEY = "bio-reagent-inventory-pending-sync-v1";
 
 const navItems: { id: View; label: string; mobileLabel: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "库存概览", mobileLabel: "概览", icon: LayoutDashboard },
@@ -75,11 +77,28 @@ const navItems: { id: View; label: string; mobileLabel: string; icon: typeof Lay
 const loadState = (): AppState => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : EMPTY_STATE;
+    return saved ? normalizeAppState(JSON.parse(saved) as AppState) : EMPTY_STATE;
   } catch {
     return EMPTY_STATE;
   }
 };
+
+const loadPendingState = (): AppState | null => {
+  try {
+    const saved = localStorage.getItem(PENDING_SYNC_KEY);
+    if (!saved) return null;
+    const parsed = JSON.parse(saved) as AppState;
+    return Array.isArray(parsed.cycles) ? normalizeAppState(parsed) : null;
+  } catch {
+    return null;
+  }
+};
+
+const newestCycleTime = (state: AppState) =>
+  Math.max(
+    0,
+    ...state.cycles.map((cycle) => Date.parse(cycle.createdAt) || 0),
+  );
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat("zh-CN", { maximumFractionDigits: 2 }).format(value);
@@ -100,6 +119,7 @@ export default function App() {
     () => sessionStorage.getItem(TOKEN_KEY) ?? "",
   );
   const cloudRevision = useRef(0);
+  const lastSyncedState = useRef("");
   const [cloudStatus, setCloudStatus] = useState<
     "local" | "loading" | "synced" | "error"
   >(token ? "loading" : "local");
@@ -131,15 +151,35 @@ export default function App() {
     let cancelled = false;
     setCloudStatus("loading");
     cloudReadState(token)
-      .then(async ({ state: remote, revision }) => {
+      .then(async ({ state: rawRemote, revision }) => {
         if (cancelled) return;
+        const remote = normalizeAppState(rawRemote);
+        const pending = loadPendingState();
+        const local = normalizeAppState(state);
         cloudRevision.current = revision;
-        if (remote.cycles.length || !state.cycles.length) {
-          setState(remote);
-        } else {
-          const saved = await cloudWriteState(token, state, revision);
+        const recoverLocal =
+          pending ??
+          (local.cycles.length &&
+          newestCycleTime(local) > newestCycleTime(remote)
+            ? local
+            : null);
+        if (recoverLocal) {
+          const saved = await cloudWriteState(token, recoverLocal, revision);
           if (cancelled) return;
           cloudRevision.current = saved.revision;
+          lastSyncedState.current = JSON.stringify(recoverLocal);
+          localStorage.removeItem(PENDING_SYNC_KEY);
+          setState(recoverLocal);
+          setToast({ kind: "success", message: "未同步的本地库存已恢复到云端" });
+        } else if (remote.cycles.length || !local.cycles.length) {
+          lastSyncedState.current = JSON.stringify(remote);
+          setState(remote);
+        } else {
+          const saved = await cloudWriteState(token, local, revision);
+          if (cancelled) return;
+          cloudRevision.current = saved.revision;
+          lastSyncedState.current = JSON.stringify(local);
+          setState(local);
         }
         hydratedFromCloud.current = true;
         setCloudStatus("synced");
@@ -149,7 +189,7 @@ export default function App() {
         setCloudStatus("error");
         setToast({
           kind: "error",
-          message: error instanceof Error ? error.message : "云端加载失败",
+          message: `${error instanceof Error ? error.message : "云端加载失败"}；本地库存仍保留，下次登录会自动重试`,
         });
       });
     return () => {
@@ -160,22 +200,30 @@ export default function App() {
   }, [token]);
   useEffect(() => {
     if (!token || !hydratedFromCloud.current) return;
+    const normalized = normalizeAppState(state);
+    const serialized = JSON.stringify(normalized);
+    if (serialized === lastSyncedState.current) return;
+    localStorage.setItem(PENDING_SYNC_KEY, serialized);
     setCloudStatus("loading");
     const timer = window.setTimeout(
       () =>
-        cloudWriteState(token, state, cloudRevision.current)
+        cloudWriteState(token, normalized, cloudRevision.current)
           .then(({ revision }) => {
             cloudRevision.current = revision;
+            lastSyncedState.current = serialized;
+            if (localStorage.getItem(PENDING_SYNC_KEY) === serialized) {
+              localStorage.removeItem(PENDING_SYNC_KEY);
+            }
             setCloudStatus("synced");
           })
           .catch((error) => {
             setCloudStatus("error");
             setToast({
               kind: "error",
-              message: error instanceof Error ? error.message : "云端同步失败",
+              message: `${error instanceof Error ? error.message : "云端同步失败"}；本地库存已保留，下次登录会自动重试`,
             });
           }),
-      700,
+      250,
     );
     return () => window.clearTimeout(timer);
   }, [state, token]);
@@ -265,7 +313,9 @@ export default function App() {
       setView("inventory");
       setToast({
         kind: "success",
-        message: `已导入 ${parsed.batches.length} 个批次，新库存周期已生效`,
+        message: token
+          ? `已导入 ${parsed.batches.length} 个批次，正在保存到云端`
+          : `已导入 ${parsed.batches.length} 个批次，新库存周期已生效`,
       });
     } catch (error) {
       setToast({

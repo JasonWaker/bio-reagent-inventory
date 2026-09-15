@@ -90,8 +90,19 @@ app.put("/state", requireAuth, requirePasswordChanged, async (req, res) => {
       expectedRevision: z.number().int().nonnegative(),
     })
     .safeParse(req.body);
-  if (!input.success)
-    return res.status(400).json({ error: "库存数据格式不正确" });
+  if (!input.success) {
+    const issue = input.error.issues[0];
+    console.warn(
+      JSON.stringify({
+        event: "state_validation_failed",
+        path: issue?.path.join("."),
+        code: issue?.code,
+      }),
+    );
+    return res.status(400).json({
+      error: `库存数据格式不正确${issue?.path.length ? `（${issue.path.join(".")}）` : ""}`,
+    });
+  }
   const revision = await writeState(
     input.data.state,
     input.data.expectedRevision,
