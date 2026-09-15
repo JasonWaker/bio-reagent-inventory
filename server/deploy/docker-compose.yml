@@ -1,0 +1,38 @@
+services:
+  bio-reagent-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: bio-reagent-inventory-api:1.0.0
+    container_name: bio-reagent-inventory-api
+    restart: unless-stopped
+    env_file:
+      - /opt/bio-reagent-inventory/config/api.env
+    ports:
+      - "127.0.0.1:3110:3110"
+    networks:
+      - bio-reagent-internal
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3110/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  bio-reagent-internal:
+    name: bio-reagent-internal

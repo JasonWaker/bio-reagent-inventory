@@ -1,0 +1,31 @@
+{
+  "project": "reagent-inventory-cloud",
+  "mode": "full",
+  "change_type": "new",
+  "status": "deployed",
+  "approved_at": "2026-09-11",
+  "source_infrastructure": "kaka-ai-production-readiness",
+  "state": {
+    "state_id": "d855458b-dfc5-8337-12c3-f807881531a9",
+    "serial": 4
+  },
+  "iac_plan": {
+    "process_id": "iac_fdd1c3fd-0265-4c81-971c-86b1dec38c05",
+    "summary": "Plan: 3 to add, 0 to change, 0 to destroy.",
+    "applied": true,
+    "apply_process_id": "iac_34bfeae3-7e50-4d00-aeb3-6317a7990b6d"
+  },
+  "verification": {
+    "frontend_build": "passed",
+    "backend_typecheck": "passed",
+    "responsive_browser_check": "passed",
+    "cloud_integration": "passed",
+    "api_endpoint": "https://inventory-api.kakahealthy.cn/bio-reagent-inventory",
+    "runtime": "isolated systemd service"
+  },
+  "constraints": [
+    "reuse existing ECS and RDS instance capacity only",
+    "independent database, accounts, OSS bucket, credentials and service",
+    "no changes to other project data or processes"
+  ]
+}
