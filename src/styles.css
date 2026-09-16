@@ -52,3 +52,16 @@ main { margin-left:252px; min-height:100vh; }
 @media (max-width:420px) { .auth-page{padding:15px}.auth-card{padding:22px}.auth-brand h1{font-size:23px} }
 @media (max-width:760px) { .heading-actions{width:100%;justify-content:flex-start}.cloud-panel form{grid-template-columns:1fr}.cloud-panel form .button{width:100%}.recognition-row{grid-template-columns:1fr 1fr}.recognition-row>strong,.recognition-row .danger-link{grid-column:1/-1}.recognition-actions{grid-template-columns:1fr 1fr}.recognition-actions>span{display:none} }
 @media (max-width:420px) { .empty-actions{width:100%;flex-direction:column}.empty-actions .button{width:100%}.heading-actions .button{flex:1 1 100%}.toolbar{flex-wrap:wrap}.toolbar .search{flex-basis:100%;max-width:none}.toolbar>.button{width:100%}.toolbar .query-count{margin-left:auto}.topbar{padding-left:10px;padding-right:10px}.mobile-menu{width:32px}.header-actions .button{padding:9px 8px} }
+
+/* 退出登录：侧边栏（PC 侧栏与手机抽屉共用同一 DOM）与设置面板 */
+.sidebar-logout { padding: 0 8px 14px; }
+.sidebar-logout-link { width:100%; display:inline-flex; align-items:center; justify-content:flex-start; gap:7px; border:0; border-radius:9px; background:transparent; color:#c6d7d3; font-size:12px; font-weight:600; padding:9px 10px; transition:.18s ease; }
+.sidebar-logout-link:hover { background:rgba(255,255,255,.09); color:#fff; }
+.sidebar-logout-link.danger { color:#ffb3a6; }
+.sidebar-logout-link.danger:hover { background:rgba(189,77,61,.28); color:#ffd2c9; }
+.sidebar-logout-confirm { display:grid; gap:8px; padding:10px; border-radius:10px; background:rgba(0,0,0,.2); }
+.sidebar-logout-confirm>span { font-size:11px; color:#8eaaa4; }
+.sidebar-logout-confirm>div { display:flex; gap:6px; }
+.sidebar-logout-confirm .sidebar-logout-link { width:auto; flex:1; justify-content:center; padding:8px 6px; }
+.logout-confirm p { margin:0 0 10px; color:var(--muted); font-size:12px; line-height:1.7; }
+.logout-confirm .button-stack .button { width:auto; }

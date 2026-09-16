@@ -569,6 +569,14 @@ export default function App() {
     setToken(nextToken);
   };
 
+  // 退出登录：只清除会话 Token，保留本地状态与待同步快照，下次登录可自动补偿
+  const handleLogout = () => {
+    sessionStorage.removeItem(TOKEN_KEY);
+    setMenuOpen(false);
+    setView("dashboard");
+    setToken("");
+  };
+
   if (cloudEnabled && !token) {
     return <AuthGate onAuthenticated={handleAuthenticated} />;
   }
@@ -648,6 +656,9 @@ export default function App() {
             </span>
           </div>
         </div>
+        {token && (
+          <LogoutButton variant="sidebar" onLogout={handleLogout} />
+        )}
       </aside>
       {menuOpen && (
         <button
@@ -1277,10 +1288,7 @@ export default function App() {
                   token={token}
                   status={cloudStatus}
                   onAuthenticated={handleAuthenticated}
-                  onLogout={() => {
-                    sessionStorage.removeItem(TOKEN_KEY);
-                    setToken("");
-                  }}
+                  onLogout={handleLogout}
                 />
                 <section className="panel settings-panel">
                   <h2>默认预警规则</h2>
@@ -1566,6 +1574,90 @@ function AuthGate({
   );
 }
 
+function LogoutButton({
+  onLogout,
+  variant = "panel",
+}: {
+  onLogout: () => void;
+  variant?: "panel" | "sidebar";
+}) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const timer = window.setTimeout(() => setArmed(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [armed]);
+
+  if (variant === "sidebar") {
+    return (
+      <div className="sidebar-logout">
+        {!armed ? (
+          <button
+            type="button"
+            className="sidebar-logout-link"
+            onClick={() => setArmed(true)}
+          >
+            <LogOut size={15} />
+            退出登录
+          </button>
+        ) : (
+          <div className="sidebar-logout-confirm">
+            <span>确认退出登录？</span>
+            <div>
+              <button
+                type="button"
+                className="sidebar-logout-link danger"
+                onClick={onLogout}
+              >
+                确认退出
+              </button>
+              <button
+                type="button"
+                className="sidebar-logout-link"
+                onClick={() => setArmed(false)}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (!armed) {
+    return (
+      <button
+        type="button"
+        className="button ghost"
+        onClick={() => setArmed(true)}
+      >
+        <LogOut size={17} />
+        退出登录
+      </button>
+    );
+  }
+  return (
+    <div className="logout-confirm">
+      <p>
+        退出后本设备将停止云端同步并返回登录页；云端数据不会删除，未同步的本地内容会保留，下次登录自动重试。
+      </p>
+      <div className="button-stack">
+        <button type="button" className="button danger" onClick={onLogout}>
+          确认退出
+        </button>
+        <button
+          type="button"
+          className="button ghost"
+          onClick={() => setArmed(false)}
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CloudPanel({
   enabled,
   token,
@@ -1610,10 +1702,7 @@ function CloudPanel({
             业务数据保存在 <strong>bio_reagent_inventory</strong>
             ，图片仅在专用私有 Bucket 中短暂存放，识别后删除。
           </p>
-          <button className="button ghost" onClick={onLogout}>
-            <LogOut size={17} />
-            退出云端
-          </button>
+          <LogoutButton onLogout={onLogout} />
         </>
       ) : temporaryToken ? (
         <form
