@@ -15,6 +15,7 @@ const headerAliases = {
   name: ['名称', '产品名称', '品名', '试剂名称'],
   quantity: ['数量', '入库数量', '定数包数量', '出库数量'],
   batchNo: ['批号', '生产批号', '批次'],
+  outQuantity: ['定数包数量', '出库数量', '数量'],
   expiryDate: ['有效期', '失效期', '有效期至'],
   documentNo: ['出库配送单号', '配送单号', '出库单号', '单据号'],
   date: ['日期', '出库日期', '配送日期'],
@@ -76,6 +77,21 @@ const columnIndex = (headers: unknown[], key: keyof typeof headerAliases) => {
   return values.findIndex((value) => headerAliases[key].some((alias) => value === clean(alias)))
 }
 
+// 按别名优先级收集数量列：出库表同时存在“数量”和“定数包数量”时优先“定数包数量”
+const quantityColumnIndexes = (headers: unknown[]) => {
+  const seen = new Set<number>()
+  const list: number[] = []
+  for (const alias of headerAliases.outQuantity) {
+    headers.forEach((header, index) => {
+      if (!seen.has(index) && clean(header) === clean(alias)) {
+        seen.add(index)
+        list.push(index)
+      }
+    })
+  }
+  return list
+}
+
 const cell = (row: unknown[], index: number) => index >= 0 ? row[index] : ''
 
 export const id = () => crypto.randomUUID()
@@ -134,11 +150,17 @@ export function parseInbound(workbook: Workbook): { batches: InventoryBatch[]; s
   return { batches, sheetName }
 }
 
+// 出库匹配：只按批号关联入库批次；批号不唯一（不同产品可能共用批号）时用名称兜底。
+// 不做出库品种编码与入库货号是否一致的拦截——院内品种编码与供货货号本来就可能不同。
 function resolveBatch(batches: InventoryBatch[], draft: Pick<OutboundRecord, 'batchNo' | 'productCode' | 'name'>) {
   const batchMatches = batches.filter((batch) => clean(batch.batchNo) && clean(batch.batchNo) === clean(draft.batchNo))
   if (batchMatches.length === 1) return batchMatches[0]
-  const skuMatches = batches.filter((batch) => clean(batch.sku) === clean(draft.productCode))
-  if (skuMatches.length === 1) return skuMatches[0]
+  if (batchMatches.length > 1) {
+    const nameMatches = batchMatches.filter((batch) => clean(batch.name) === clean(draft.name))
+    if (nameMatches.length === 1) return nameMatches[0]
+    return undefined
+  }
+  // 批号完全对不上时，保留“全局唯一名称”兜底；名称不唯一则不猜，标记待人工匹配
   const nameMatches = batches.filter((batch) => clean(batch.name) === clean(draft.name))
   if (nameMatches.length === 1) return nameMatches[0]
   return undefined
@@ -148,16 +170,20 @@ export function parseOutbound(workbook: Workbook, cycle: InventoryCycle, fileNam
   const results: OutboundRecord[] = []
   for (const worksheet of workbook.worksheets) {
     const rows = worksheetRows(worksheet)
-    const header = findHeaderRow(rows, ['name', 'quantity', 'batchNo'])
+    const header = findHeaderRow(rows, ['name', 'outQuantity', 'batchNo'])
     if (header.score < 3) continue
     const headers = rows[header.index]
     const indexes = {
       documentNo: columnIndex(headers, 'documentNo'), date: columnIndex(headers, 'date'), department: columnIndex(headers, 'department'),
-      productCode: columnIndex(headers, 'productCode'), name: columnIndex(headers, 'name'), quantity: columnIndex(headers, 'quantity'),
+      productCode: columnIndex(headers, 'productCode'), name: columnIndex(headers, 'name'),
+      quantityColumns: quantityColumnIndexes(headers),
       batchNo: columnIndex(headers, 'batchNo'), expiryDate: columnIndex(headers, 'expiryDate'),
     }
     for (const [offset, row] of rows.slice(header.index + 1).entries()) {
-      const quantity = numberValue(cell(row, indexes.quantity))
+      // 优先取“定数包数量”，该列为空/0 的行再逐列回退到“出库数量/数量”
+      const quantity = indexes.quantityColumns
+        .map((qIndex) => numberValue(cell(row, qIndex)))
+        .find((value) => value > 0) ?? 0
       const name = String(cell(row, indexes.name)).trim()
       const batchNo = String(cell(row, indexes.batchNo)).trim()
       if (!quantity || (!name && !batchNo)) continue
