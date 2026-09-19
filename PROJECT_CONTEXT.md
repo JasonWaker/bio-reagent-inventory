@@ -455,12 +455,12 @@ git diff --check
 
 > 用户要求（2026-09-17）：此后所有修改均必须记录于此，供后续移交 ChatGPT。每条记录包含：时间、类型、内容、原因、影响范围、当前状态/回滚方式。时间均为 Asia/Shanghai (CST, UTC+8)。
 
-### 2026-09-19 — 出库口径优化：数量以「定数包数量」为准 + 取消货号拦截（未发布，待用户确认）
-- 类型：前端逻辑（改动仅 `src/lib/inventory.ts`；无 UI/样式改动，PC 与移动端走同一解析与匹配链路）
+### 2026-09-19 23:01 — 出库口径优化：数量以「定数包数量」为准 + 取消货号拦截（已发生产）
+- 类型：前端逻辑（提交 `a2747e0`，改动仅 `src/lib/inventory.ts`；无 UI/样式改动，PC 与移动端走同一解析与匹配链路）
 - 内容：
   1. 出库数量按 定数包数量 → 出库数量 → 数量 的优先级取列（新增 `outQuantity` 别名组与 `quantityColumnIndexes()`）；某行优先列为空/0 时逐列回退，旧模板（仅「数量」列）行为不变。
   2. `resolveBatch()` 删除“出库 productCode 必须等于入库 sku”的匹配步：批号唯一即直接关联；同批号多批次时在其中按名称唯一兜底；批号对不上时仅在名称全局唯一时兜底；其余标记 unmatched。拍照识别出库与手工编辑后重算同样走该逻辑（`refreshMatchStatuses` 统一调用）。
-- 验证：`tsc --noEmit`、`npm run build` 通过；用真实 exceljs 构造 5 批次/7 行出库的逻辑测试 11 项断言全部通过（定数包优先、空值回退、共用批号名称兜底、名称全局唯一兜底、无法匹配→unmatched、超扣→overdrawn、旧模板兼容）。
+- 验证：`tsc --noEmit`、`npm run build` 通过；用真实 exceljs 构造 5 批次/7 行出库的逻辑测试 11 项断言全部通过（定数包优先、空值回退、共用批号名称兜底、名称全局唯一兜底、无法匹配→unmatched、超扣→overdrawn、旧模板兼容）。生产发布：Actions run 35450468386 成功（44 秒）；线上 `index-Dtlks6gw.js`、`exceljs.min-5D57r4WN.js` 均 200。
 - 影响范围：出库导入、拍照出库、出库记录重算；入库解析、云端同步、ECS/RDS 均无改动。历史出库记录在下次任何出库写入触发 `refreshMatchStatuses` 后按新规则重算（仅可能由 unmatched 变 matched，matchedBatchId 不丢失）。
 - 回滚方式：revert 本次提交。
 
