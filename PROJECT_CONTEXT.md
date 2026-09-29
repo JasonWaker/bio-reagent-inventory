@@ -455,6 +455,16 @@ git diff --check
 
 > 用户要求（2026-09-17）：此后所有修改均必须记录于此，供后续移交 ChatGPT。每条记录包含：时间、类型、内容、原因、影响范围、当前状态/回滚方式。时间均为 Asia/Shanghai (CST, UTC+8)。
 
+### 2026-09-29 11:35 — 识别模型升级 + Staging 配 API（后端已部署，待用户测试验证）
+- 类型：后端逻辑 + Staging CI 配置（提交 `17f577f`；ECS 新 release `17f577f`；staging 仓库 workflow 更新 commit `686124ff`）
+- 内容：
+  1. **后端识别模型从 `qwen-vl-ocr-latest` 升级为 `qwen3-vl-flash`**（Qwen3 VL，2026-01-22 快照，支持结构化输出）。旧模型不支持 `response_format`，靠正则从纯文本抠 JSON 易出错；新模型原生 JSON 输出，识别准确性大幅提升。
+  2. **recognition.ts 加 `response_format: {type: "json_object"}`**，删除对 `extractJson` 正则解析的依赖（函数保留作兜底）。优化 system prompt：明确区分 sku（厂家货号）与 productCode（院内编码）、批号原样保留、数量中文数字转换、超时从 45s 提到 60s。
+  3. **ECS 部署**：新 release `/opt/bio-reagent-inventory/releases/17f577f/server`（从旧 release 60980e9 复制 + 覆盖 dist/recognition.js、dist/config.js）；`/opt/bio-reagent-inventory/config/api.env` 中 `BAILIAN_VISION_MODEL` 改为 `qwen3-vl-flash`；systemd WorkingDirectory 更新为 17f577f；服务已重启，`systemctl is-active` = active，health 接口返回 `{"ok":true}`。**未改数据库任何数据。**
+  4. **Staging 配 API**：staging workflow（`JasonWaker/bio-reagent-inventory-staging` 仓库 `deploy-staging.yml`）build 步骤注入 `VITE_API_BASE_URL=https://inventory-api.kakahealthy.cn/bio-reagent-inventory`。Staging 现在显示登录页（非本地模式），调生产后端，可测试拍照识别。Staging Actions run 36517539899 成功。
+- 影响范围：后端只有一个实例，生产前端和 staging 前端都调同一个后端 API。换模型后**生产用户也会立即用新模型**。如需回滚：ECS 上 `sed -i "s|releases/17f577f|releases/60980e9|" /etc/systemd/system/bio-reagent-inventory.service && sed -i "s/qwen3-vl-flash/qwen-vl-ocr-latest/" /opt/bio-reagent-inventory/config/api.env && systemctl daemon-reload && systemctl restart bio-reagent-inventory`。
+- 待办：用户在 staging（https://jasonwaker.github.io/bio-reagent-inventory-staging/）登录后测试拍照入库/出库，验证新模型识别效果。测试通过后本轮变更视为完成。
+
 ### 2026-09-19 23:01 — 出库口径优化：数量以「定数包数量」为准 + 取消货号拦截（已发生产）
 - 类型：前端逻辑（提交 `a2747e0`，改动仅 `src/lib/inventory.ts`；无 UI/样式改动，PC 与移动端走同一解析与匹配链路）
 - 内容：
