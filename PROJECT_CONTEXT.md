@@ -455,6 +455,12 @@ git diff --check
 
 > 用户要求（2026-09-17）：此后所有修改均必须记录于此，供后续移交 ChatGPT。每条记录包含：时间、类型、内容、原因、影响范围、当前状态/回滚方式。时间均为 Asia/Shanghai (CST, UTC+8)。
 
+### 2026-09-29 12:20 — 修复百炼鉴权：写入真实 DASHSCOPE_API_KEY
+- 类型：运维配置（无代码变更）
+- 根因：`/opt/bio-reagent-inventory/config/api.env` 中 `DASHSCOPE_API_KEY` 一直是未展开的占位模板 `'${DASHSCOPE_API_KEY:-${BAILIAN_API_KEY:-${BAILIAN_KEY:-}}}'`，systemd EnvironmentFile 不做 shell 展开，进程拿到字面量导致百炼 401（前端报"百炼鉴权未就绪"）。该问题自部署起即存在，拍照识别此前从未真正成功过，9-29 服务重启后暴露。
+- 处理：用户提供百炼 API Key（sk-ws- 前缀，已在 ECS 上直接 curl 验证 `qwen3-vl-flash` 调用成功）；备份原文件为 `api.env.bak-20260929` 后写入真实 Key；重启服务，`/proc/<pid>/environ` 确认进程已加载真实 Key；health 正常。
+- 备注：Key 曾经过云助手命令下发，会留存在云助手调用记录中；如有疑虑可在百炼控制台轮换后按同样方式更新。
+
 ### 2026-09-29 11:50 — 识别链路修复：改用 Base64 Data URL 传图（提交 `5bd6621`）
 - 类型：后端逻辑（修复 OSS 签名 URL 被百炼拒访的问题）
 - 内容：
