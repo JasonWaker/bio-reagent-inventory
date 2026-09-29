@@ -455,6 +455,13 @@ git diff --check
 
 > 用户要求（2026-09-17）：此后所有修改均必须记录于此，供后续移交 ChatGPT。每条记录包含：时间、类型、内容、原因、影响范围、当前状态/回滚方式。时间均为 Asia/Shanghai (CST, UTC+8)。
 
+### 2026-09-30 09:10 — 拍照出库识别数量取「定数包数量」列（提交 `6322449`）
+- 类型：后端 prompt 修复
+- 问题：拍照识别出库单时模型取错数量列（识别出 100/194/880 等异常值，实际应为定数包数量 5/15/35 这类小包数），原因是 system prompt 未指定数量取哪一列。
+- 处理：出库单 prompt 新增规则——quantity 必须取「定数包数量」列，仅当该行为空才依次回退「出库数量」「数量」，严禁取序号/金额列；入库单规则不变。与 Excel 导入侧（inventory.ts 9-19 优化）口径保持一致。
+- ECS 新 release `6322449`（从 5bd6621 复制 + 覆盖 recognition.js），服务重启 active，health 正常。未改数据。
+- 回滚：`sed -i "s|releases/6322449|releases/5bd6621|" /etc/systemd/system/bio-reagent-inventory.service && systemctl daemon-reload && systemctl restart bio-reagent-inventory`。
+
 ### 2026-09-29 12:20 — 修复百炼鉴权：写入真实 DASHSCOPE_API_KEY
 - 类型：运维配置（无代码变更）
 - 根因：`/opt/bio-reagent-inventory/config/api.env` 中 `DASHSCOPE_API_KEY` 一直是未展开的占位模板 `'${DASHSCOPE_API_KEY:-${BAILIAN_API_KEY:-${BAILIAN_KEY:-}}}'`，systemd EnvironmentFile 不做 shell 展开，进程拿到字面量导致百炼 401（前端报"百炼鉴权未就绪"）。该问题自部署起即存在，拍照识别此前从未真正成功过，9-29 服务重启后暴露。
