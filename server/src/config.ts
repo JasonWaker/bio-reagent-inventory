@@ -13,7 +13,7 @@ const configSchema = z.object({
   CORS_ORIGIN: z.string().url(),
   DASHSCOPE_API_KEY: z.string().min(10),
   BAILIAN_BASE_URL: z.string().url().default("https://dashscope.aliyuncs.com"),
-  BAILIAN_VISION_MODEL: z.string().default("qwen-vl-ocr-latest"),
+  BAILIAN_VISION_MODEL: z.string().default("qwen3-vl-flash"),
   OSS_REGION: z.string().min(1),
   OSS_BUCKET: z.string().min(3),
   OSS_ACCESS_KEY_ID: z.string().min(8),
