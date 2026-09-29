@@ -455,6 +455,17 @@ git diff --check
 
 > 用户要求（2026-09-17）：此后所有修改均必须记录于此，供后续移交 ChatGPT。每条记录包含：时间、类型、内容、原因、影响范围、当前状态/回滚方式。时间均为 Asia/Shanghai (CST, UTC+8)。
 
+### 2026-09-29 11:50 — 识别链路修复：改用 Base64 Data URL 传图（提交 `5bd6621`）
+- 类型：后端逻辑（修复 OSS 签名 URL 被百炼拒访的问题）
+- 内容：
+  1. `qwen3-vl-flash` 升级后，OSS 签名 URL 被百炼服务器拒绝（"The request signature we calculated does not match the signature you provided"），导致识别功能完全不可用。
+  2. 根因：OSS 签名 URL 在 `qwen-vl-ocr-latest` 时代可能可用，但 `qwen3-vl-flash` 的服务器无法正确访问阿里云 OSS 的签名 URL（可能是 OSS 私有桶 + 签名 URL 格式兼容性问题）。
+  3. 修复：改为直接传 **Base64 Data URL**（`data:{mime_type};base64,{data}`），绕过 OSS 中间步骤。这是百炼官方文档明确支持的传图方式。
+  4. 移除 OSS 上传/删除逻辑，简化为：图片 → base64 → 百炼 → JSON。不再需要 OSS 配置。
+  5. ECS 新 release `5bd6621`，api.env 未改（模型仍是 `qwen3-vl-flash`）。
+- 影响范围：识别功能从"完全报错"变为"可用"。staging 和生产同时生效（共用同一后端）。
+- 回滚：ECS 上 `sed -i "s|releases/5bd6621|releases/17f577f|" /etc/systemd/system/bio-reagent-inventory.service && systemctl daemon-reload && systemctl restart bio-reagent-inventory`（回到 OSS 签名 URL 版本）。
+
 ### 2026-09-29 11:35 — 识别模型升级 + Staging 配 API（后端已部署，待用户测试验证）
 - 类型：后端逻辑 + Staging CI 配置（提交 `17f577f`；ECS 新 release `17f577f`；staging 仓库 workflow 更新 commit `686124ff`）
 - 内容：
