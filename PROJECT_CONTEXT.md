@@ -455,9 +455,17 @@ git diff --check
 
 > 用户要求（2026-09-17）：此后所有修改均必须记录于此，供后续移交 ChatGPT。每条记录包含：时间、类型、内容、原因、影响范围、当前状态/回滚方式。时间均为 Asia/Shanghai (CST, UTC+8)。
 
+### 2026-09-30 09:45 — 修复识别误取「定数包系」列导致数量全为 1（提交 `8a991d1`）
+- 类型：后端 prompt 修复
+- 问题：出库单表头同时存在「定数包系」（系数列，每行都是 1）与「定数包数量」（真实出库包数）两个列名极像的列，上一轮 prompt（6322449）只写了取"定数包数量"，模型仍错认成「定数包系」，14 行数量全部识别为 1。
+- 处理：prompt 显式描述两列差异（系数列恒为 1，严禁取；目标列列名完整四字"定数包数量"），并加入自检规则"若所有行都是 1 则重新辨认表头"；回退顺序不变（出库数量→数量）。
+- 验证：本地用 Pillow 合成含两列的表格图（STHeiti 字体，测试行定数包数量预设为 5/15/35、定数包系均为 1；这些是合成数据非真实单据值），直接调 qwen3-vl-flash，数量正确返回 5/15/35，PASS。
+- ECS 新 release `8a991d1`（从 6322449 复制 + 覆盖 recognition.js），服务 active、health 正常，未改数据。
+- 回滚：`sed -i "s|releases/8a991d1|releases/6322449|" /etc/systemd/system/bio-reagent-inventory.service && systemctl daemon-reload && systemctl restart bio-reagent-inventory`。
+
 ### 2026-09-30 09:10 — 拍照出库识别数量取「定数包数量」列（提交 `6322449`）
 - 类型：后端 prompt 修复
-- 问题：拍照识别出库单时模型取错数量列（识别出 100/194/880 等异常值，实际应为定数包数量 5/15/35 这类小包数），原因是 system prompt 未指定数量取哪一列。
+- 问题：拍照识别出库单时模型取错数量列（识别出 100/194/880 等与实际不符的值），原因是 system prompt 未指定数量取哪一列。
 - 处理：出库单 prompt 新增规则——quantity 必须取「定数包数量」列，仅当该行为空才依次回退「出库数量」「数量」，严禁取序号/金额列；入库单规则不变。与 Excel 导入侧（inventory.ts 9-19 优化）口径保持一致。
 - ECS 新 release `6322449`（从 5bd6621 复制 + 覆盖 recognition.js），服务重启 active，health 正常。未改数据。
 - 回滚：`sed -i "s|releases/6322449|releases/5bd6621|" /etc/systemd/system/bio-reagent-inventory.service && systemctl daemon-reload && systemctl restart bio-reagent-inventory`。
