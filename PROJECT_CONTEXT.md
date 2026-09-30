@@ -455,6 +455,24 @@ git diff --check
 
 > 用户要求（2026-09-17）：此后所有修改均必须记录于此，供后续移交 ChatGPT。每条记录包含：时间、类型、内容、原因、影响范围、当前状态/回滚方式。时间均为 Asia/Shanghai (CST, UTC+8)。
 
+### 2026-09-30 15:55 — 出库识别核对页标签改「定数包数量」+ prompt 加入列位置描述（提交 `6685657`）
+- 类型：前端 UI + 后端 prompt
+- 改动：
+  - 前端识别核对页，出库单的数量字段标签从「数量」改为「定数包数量」，入库单保持「数量」不变（[App.tsx:1908](file:///Users/jason/Documents/ChatGPT/进销存小系统/src/App.tsx#L1908)）
+  - 后端 prompt 改为位置描述：「定数包数量」列在「单价」右侧、「批号」左侧；禁止取「定数包系/定数包系数」列（值恒为 1 的系数列）；自检规则保留——全为 1 说明取错列
+- 验证：用真实出库单照片（测试拍照对对对.jpg，14 行）直接调 qwen3-vl-flash，数量全部正确（35/5/15/30/40/35/35/35/5/35/3/5/35/15），与单据原值 100% 匹配
+- ECS 新 release `6685657`（仅 recognition.js 变更），服务 active、health 正常
+- 回滚：`sed -i "s|releases/6685657|releases/c717e8f|" /etc/systemd/system/bio-reagent-inventory.service && systemctl daemon-reload && systemctl restart bio-reagent-inventory`
+
+### 2026-09-30 10:00 — 清理 staging OCR 测试污染 + 识别接口改为零写入（提交 `c717e8f`）
+- 类型：数据清理 + 后端逻辑
+- 背景：staging 配生产 API 后与生产共库，9-29 23:56 在识别核对页点「确认并写入」，14 条错误出库（数量取错列：100/194/880 等，source_key 前缀 `ocr::`）写入生产，导致 13 个批次透支。
+- 清理（用户已批准）：删除 14 条 ocr:: 出库记录、4 条 recognition_drafts 草稿、旧周期（2026/9/11）中 2 个与当前周期完全重复的批次（KC260226A、KC260515A，删除前确认无出库引用）；删除后透支批次 0，表计数 outbound 28 / batches 21 / drafts 0。
+- 备份：删除前导出至 ECS `/opt/bio-reagent-inventory/backups/cleanup-20260930.json`（27913 字节），同时下载至仓库工作区 `backups/cleanup-20260930.json`。
+- 防污染改造：识别接口不再 INSERT recognition_drafts，拍照识别全流程零 DB 写入；只有用户主动点「确认并写入」才经 state.replace 落库并写 audit_logs。顺手清理 Base64 改造后遗留的 ali-oss 死代码和无用 actor 参数（index.ts 调用处同步）。
+- 验证：ECS 新 release `c717e8f`（recognition.js + index.js 两个文件变更），服务 active、health 正常；端到端直接调用 recognizeDocument（合成 1-bit 表格图），返回结果后 recognition_drafts 计数仍为 0，PASS。
+- 回滚：① 数据恢复——用 backups/cleanup-20260930.json 按表插回；② 代码回滚——`sed -i "s|releases/c717e8f|releases/8a991d1|" /etc/systemd/system/bio-reagent-inventory.service && systemctl daemon-reload && systemctl restart bio-reagent-inventory`（恢复草稿落库版本）。
+
 ### 2026-09-30 09:45 — 修复识别误取「定数包系」列导致数量全为 1（提交 `8a991d1`）
 - 类型：后端 prompt 修复
 - 问题：出库单表头同时存在「定数包系」（系数列，每行都是 1）与「定数包数量」（真实出库包数）两个列名极像的列，上一轮 prompt（6322449）只写了取"定数包数量"，模型仍错认成「定数包系」，14 行数量全部识别为 1。
