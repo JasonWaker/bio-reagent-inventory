@@ -142,7 +142,7 @@ app.post(
       return res.status(400).json({ error: "图片文件内容与格式不一致" });
     try {
       res.json(
-        await recognizeDocument(req.file, req.params.kind, res.locals.user),
+        await recognizeDocument(req.file, req.params.kind),
       );
     } catch (error) {
       res.status(502).json({

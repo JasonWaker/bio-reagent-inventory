@@ -1,16 +1,6 @@
-import OSS from "ali-oss";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { recognitionSchema } from "./schema.js";
-import { pool } from "./db.js";
-
-const oss = new OSS({
-  region: config.OSS_REGION,
-  bucket: config.OSS_BUCKET,
-  accessKeyId: config.OSS_ACCESS_KEY_ID,
-  accessKeySecret: config.OSS_ACCESS_KEY_SECRET,
-  secure: true,
-});
 
 function extractJson(text: string) {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
@@ -22,7 +12,6 @@ function extractJson(text: string) {
 export async function recognizeDocument(
   file: Express.Multer.File,
   kind: "inbound" | "outbound",
-  actor: string,
 ) {
   const draftId = randomUUID();
   try {
@@ -77,10 +66,9 @@ export async function recognizeDocument(
     );
     if (!parsed.success)
       throw new Error("识别结果未通过字段校验，请重试或手工录入");
-    await pool.query(
-      "INSERT INTO recognition_drafts (id,actor,document_type,result) VALUES ($1,$2,$3,$4)",
-      [draftId, actor, kind, parsed.data],
-    );
+    // 识别接口零写入：不再落 recognition_drafts 草稿。
+    // staging 与生产共用此后端，只要前端不点「确认并写入」，拍照识别不会产生任何数据。
+    // draftId 仅作为本次识别标识返回，供确认写入时拼装幂等 source_key。
     return { id: draftId, kind, ...parsed.data };
   } finally {
     // 不再使用 OSS，无需清理
