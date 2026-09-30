@@ -1905,7 +1905,7 @@ function RecognitionModal({
               />
             </label>
             <label>
-              数量
+              {draft.kind === "outbound" ? "定数包数量" : "数量"}
               <input
                 required
                 min="0.01"
